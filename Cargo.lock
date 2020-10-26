@@ -4,16 +4,10 @@
 name = "hf"
 version = "0.1.0"
 dependencies = [
- "huffman-file",
+ "huffman 0.1.0",
 ]
 
 [[package]]
 name = "huffman"
 version = "0.1.0"
 
-[[package]]
-name = "huffman-file"
-version = "0.1.0"
-dependencies = [
- "huffman",
-]

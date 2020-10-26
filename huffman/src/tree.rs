@@ -129,7 +129,7 @@ where
                 TreeNode::Leaf(value) => Tree {
                     root: (TreeNode::Leaf(value.clone()), TreeNode::Leaf(value)),
                     max_depth: 1,
-                    leaf_nodes: 1,
+                    leaf_nodes: 2,
                 },
             })
         } else {
@@ -200,8 +200,11 @@ mod tests {
     }
     #[test]
     fn build_tree_single_element() {
+        let tree = Tree::build([0].iter().map(|e| *e)).unwrap();
+        assert_eq!(tree.max_depth(), 1);
+        assert_eq!(tree.leaf_nodes(), 2);
         assert_eq!(
-            Tree::build([0].iter().map(|e| *e)).unwrap().get_code_depths(),
+            tree.get_code_depths(),
             HashMap::from_iter([(0, 1)].iter().map(|e| *e))
         )
     }
@@ -214,7 +217,10 @@ mod tests {
         depths.insert('c', 3);
         depths.insert('d', 3);
         depths.insert('e', 3);
-        assert_eq!(Tree::build(text.chars()).unwrap().get_code_depths(), depths);
+        let tree = Tree::build(text.chars()).unwrap();
+        assert_eq!(tree.max_depth(), 3);
+        assert_eq!(tree.leaf_nodes(), 5);
+        assert_eq!(tree.get_code_depths(), depths);
     }
     #[test]
     fn build_tree_ints() {
@@ -226,8 +232,11 @@ mod tests {
         depths.insert(3, 2);
         depths.insert(4, 3);
         depths.insert(5, 3);
+        let tree = Tree::build(words.iter().map(|e| *e)).unwrap();
+        assert_eq!(tree.max_depth(), 3);
+        assert_eq!(tree.leaf_nodes(), 6);
         assert_eq!(
-            Tree::build(words.iter().map(|e| *e)).unwrap().get_code_depths(),
+            tree.get_code_depths(),
             depths
         );
     }

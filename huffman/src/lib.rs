@@ -1,8 +1,9 @@
 #![allow(dead_code)]
 
-mod decode;
-mod encode;
 mod tree;
+mod encode;
+mod decode;
+mod serialize;
 
 pub use tree::Tree;
 pub use encode::Encoder;

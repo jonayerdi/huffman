@@ -1,2 +1,2 @@
 [workspace]
-members = ["huffman", "huffman-file", "hf"]
+members = ["huffman", "hf"]
