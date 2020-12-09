@@ -235,10 +235,7 @@ mod tests {
         let tree = Tree::build(words.iter().map(|e| *e)).unwrap();
         assert_eq!(tree.max_depth(), 3);
         assert_eq!(tree.leaf_nodes(), 6);
-        assert_eq!(
-            tree.get_code_depths(),
-            depths
-        );
+        assert_eq!(tree.get_code_depths(), depths);
     }
     #[test]
     fn build_codes_table() {

@@ -16,6 +16,7 @@ use std::collections::VecDeque;
 use std::hash::Hash;
 use std::io;
 
+use crate::traits::Serialize;
 use crate::tree::{Tree, TreeNode};
 
 const MAGIC: [u8; 4] = ['h' as u8, 'f' as u8, '0' as u8, '0' as u8];
@@ -46,8 +47,9 @@ pub fn write_encoding<W: io::Write>(mut dst: W, encoding: Encoding) -> io::Resul
     dst.write_all(&data).map(|_| data.len())
 }
 
-pub fn write_tree<W: io::Write, T>(mut dst: W, tree: &Tree<T>) -> io::Result<usize>
-    where T: Clone + Eq + Hash,
+pub fn write_tree<W: io::Write, T: Serialize>(mut dst: W, tree: &Tree<T>) -> io::Result<usize>
+where
+    T: Clone + Eq + Hash,
 {
     let mut values = Vec::with_capacity(tree.leaf_nodes());
     let nodes_size = write_tree_nodes(&mut dst, tree, &mut values)?;
@@ -55,8 +57,13 @@ pub fn write_tree<W: io::Write, T>(mut dst: W, tree: &Tree<T>) -> io::Result<usi
     Ok(nodes_size + values_size)
 }
 
-pub fn write_tree_nodes<W: io::Write, T>(mut dst: W, tree: &Tree<T>, values: &mut Vec<T>) -> io::Result<usize>
-    where T: Clone + Eq + Hash,
+pub fn write_tree_nodes<W: io::Write, T>(
+    mut dst: W,
+    tree: &Tree<T>,
+    values: &mut Vec<T>,
+) -> io::Result<usize>
+where
+    T: Clone + Eq + Hash,
 {
     let mut nodes = VecDeque::with_capacity(tree.leaf_nodes());
     let mut data = [0u8; ALIGN_TREE];
@@ -73,11 +80,11 @@ pub fn write_tree_nodes<W: io::Write, T>(mut dst: W, tree: &Tree<T>, values: &mu
                 *data_byte &= !(1 << data_bit_index);
                 nodes.push_back(&children.0);
                 nodes.push_back(&children.1);
-            },
+            }
             TreeNode::Leaf(value) => {
                 *data_byte |= 1 << data_bit_index;
                 values.push(value.clone());
-            },
+            }
         }
         data_bit_index = (data_bit_index + 1) % 8;
         if data_bit_index == 0 {
@@ -96,20 +103,28 @@ pub fn write_tree_nodes<W: io::Write, T>(mut dst: W, tree: &Tree<T>, values: &mu
     Ok(data_byte_index)
 }
 
-pub fn write_tree_values<W: io::Write, T>(mut dst: W, values: &[T]) -> io::Result<usize> 
-{
+pub fn write_tree_values<W: io::Write, T: Serialize>(
+    mut dst: W,
+    values: &[T],
+) -> io::Result<usize> {
+    let mut written = 0usize;
     for v in values {
-        dst.write(v.serialize())?;
+        written += v.serialize(&mut dst)?;
     }
-    Ok(values.len() * T::serialized_size())
+    Ok(written)
 }
 
 pub fn write_data<W: io::Write>(mut dst: W, data: &[u8]) -> io::Result<usize> {
     if data.len() > u64::MAX as usize {
-        return Err(io::Error::new(io::ErrorKind::InvalidInput, "Data length cannot be represented with 64 bits"))
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "Data length cannot be represented with 64 bits",
+        ));
     }
     let data_size = u64::to_le_bytes(data.len() as u64);
-    let padding: Vec<u8> = (0..align_diff(data.len(), ALIGN_DATA)).map(|_| 0u8).collect();
+    let padding: Vec<u8> = (0..align_diff(data.len(), ALIGN_DATA))
+        .map(|_| 0u8)
+        .collect();
     dst.write_all(&data_size)?;
     dst.write_all(data)?;
     dst.write_all(&padding)?;

@@ -1,10 +1,12 @@
 #![allow(dead_code)]
 
-mod tree;
-mod encode;
 mod decode;
+mod encode;
 mod serialize;
+mod traits;
+mod tree;
 
-pub use tree::Tree;
-pub use encode::Encoder;
 pub use decode::Decoder;
+pub use encode::Encoder;
+pub use traits::Serialize;
+pub use tree::Tree;
