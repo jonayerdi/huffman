@@ -2,7 +2,7 @@
 
 HF {
     magic: "hf00",
-    encoding: u32, // 0=Nothing, 1=tree, 2=fixed-tree?
+    encoding: u32, // 0=Raw, 1=DynamicTree, 2=FixedTree
     tree_nodes: vec![1,0,0,0,1,1,1,1], // 0=Parent, 1=Leaf
     tree_values: "obcde", // In nodes order
     data_size: u64, // Bytes
@@ -30,26 +30,15 @@ pub enum Encoding {
 }
 
 fn align_diff(size: usize, align: usize) -> usize {
-    // TODO
-    align - (size % align)
+    (align - (size % align)) % align
 }
 
-fn u32_le_bytes(val: u32) -> [u8; 4] {
-    unsafe { std::mem::transmute(val.to_le()) }
-}
-
-fn u64_le_bytes(val: u64) -> [u8; 8] {
-    unsafe { std::mem::transmute(val.to_le()) }
-}
-
-pub fn write_magic<W: io::Write>(dst: W) -> io::Result<usize> {
-    let mut dst = dst;
+pub fn write_magic<W: io::Write>(mut dst: W) -> io::Result<usize> {
     dst.write_all(&MAGIC).map(|_| MAGIC.len())
 }
 
-pub fn write_encoding<W: io::Write>(dst: W, encoding: Encoding) -> io::Result<usize> {
-    let mut dst = dst;
-    let data: [u8; 4] = u32_le_bytes(match encoding {
+pub fn write_encoding<W: io::Write>(mut dst: W, encoding: Encoding) -> io::Result<usize> {
+    let data: [u8; 4] = u32::to_le_bytes(match encoding {
         Encoding::Raw => 0,
         Encoding::DynamicTree => 1,
         Encoding::FixedTree => 2,
@@ -57,19 +46,18 @@ pub fn write_encoding<W: io::Write>(dst: W, encoding: Encoding) -> io::Result<us
     dst.write_all(&data).map(|_| data.len())
 }
 
-pub fn write_tree<W: io::Write, T>(dst: W, tree: &Tree<T>) -> io::Result<usize>
+pub fn write_tree<W: io::Write, T>(mut dst: W, tree: &Tree<T>) -> io::Result<usize>
     where T: Clone + Eq + Hash,
 {
     let mut values = Vec::with_capacity(tree.leaf_nodes());
-    let nodes_size = write_tree_nodes(dst, tree, &mut values)?;
+    let nodes_size = write_tree_nodes(&mut dst, tree, &mut values)?;
     let values_size = write_tree_values(dst, &values)?;
     Ok(nodes_size + values_size)
 }
 
-pub fn write_tree_nodes<W: io::Write, T>(dst: W, tree: &Tree<T>, values: &mut Vec<T>) -> io::Result<usize>
+pub fn write_tree_nodes<W: io::Write, T>(mut dst: W, tree: &Tree<T>, values: &mut Vec<T>) -> io::Result<usize>
     where T: Clone + Eq + Hash,
 {
-    let mut dst = dst;
     let mut nodes = VecDeque::with_capacity(tree.leaf_nodes());
     let mut data = [0u8; ALIGN_TREE];
     let mut data_byte = &mut data[0];
@@ -108,18 +96,19 @@ pub fn write_tree_nodes<W: io::Write, T>(dst: W, tree: &Tree<T>, values: &mut Ve
     Ok(data_byte_index)
 }
 
-pub fn write_tree_values<W: io::Write>(dst: W, values: &[u8]) -> io::Result<usize> {
-    let mut dst = dst;
-    // TODO
-    Ok(0)
+pub fn write_tree_values<W: io::Write, T>(mut dst: W, values: &[T]) -> io::Result<usize> 
+{
+    for v in values {
+        dst.write(v.serialize())?;
+    }
+    Ok(values.len() * T::serialized_size())
 }
 
-pub fn write_data<W: io::Write>(dst: W, data: &[u8]) -> io::Result<usize> {
-    let mut dst = dst;
+pub fn write_data<W: io::Write>(mut dst: W, data: &[u8]) -> io::Result<usize> {
     if data.len() > u64::MAX as usize {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "Data length cannot be represented with 64 bits"))
     }
-    let data_size = u64_le_bytes(data.len() as u64);
+    let data_size = u64::to_le_bytes(data.len() as u64);
     let padding: Vec<u8> = (0..align_diff(data.len(), ALIGN_DATA)).map(|_| 0u8).collect();
     dst.write_all(&data_size)?;
     dst.write_all(data)?;
